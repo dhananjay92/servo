@@ -1,5 +1,6 @@
 from __future__ import print_function, unicode_literals
 
+import sys
 import os
 import os.path as path
 import subprocess
@@ -15,6 +16,26 @@ from servo.command_base import CommandBase, cd
 
 def is_headless_build():
     return int(os.getenv('SERVO_HEADLESS', 0)) == 1
+
+# Function to generate desktop notification once build is completed & limit exceeded!
+def Notify(elapsed):
+    if elapsed > 300:
+        if sys.platform.startswith('linux'):
+            try:
+                import dbus
+            except ImportError:
+                raise Exception('Install the python dbus module to get a notification when the build finishes.')
+            bus = dbus.SessionBus()
+            notify = bus.get_object('org.freedesktop.Notifications', '/org/freedesktop/Notifications')
+            method = notify.get_dbus_method('Notify', 'org.freedesktop.Notifications')
+            method('Servo Build System', 0, '', ' Servo build complete!', '', [], [], -1)
+        elif sys.platform.startswith('darwin'):
+            # Notification code for Darwin here! For the time being printing simple msg
+            print("[DJ-DEV] : Darwin System! Notifications not supported currently!  Coming soon...")
+        elif sys.platform.startswith('win'):
+            # Notification code for Darwin here! For the time being printing simple msg
+            print("[DJ-DEV] : Windows System! Notifications not supported currently! Coming soon...")
+
 
 @CommandProvider
 class MachCommands(CommandBase):
@@ -102,6 +123,9 @@ class MachCommands(CommandBase):
             env=env, cwd=self.servo_crate())
         elapsed = time() - build_start
 
+        # Generate Desktop Notification if elapsed-time > some threshold value
+        Notify(elapsed)
+
         print("Build completed in %0.2fs" % elapsed)
         return status
 
@@ -134,6 +158,9 @@ class MachCommands(CommandBase):
             ret = subprocess.call(["cargo", "build"] + opts,
                                   env=self.build_env())
         elapsed = time() - build_start
+
+        # Generate Desktop Notification if elapsed-time > some threshold value
+        Notify(elapsed)
 
         print("CEF build completed in %0.2fs" % elapsed)
 
@@ -169,6 +196,9 @@ class MachCommands(CommandBase):
         with cd(path.join("ports", "gonk")):
             ret = subprocess.call(["cargo", "build"] + opts, env=env)
         elapsed = time() - build_start
+
+        # Generate Desktop Notification if elapsed-time > some threshold value
+        Notify(elapsed)
 
         print("Gonk build completed in %0.2fs" % elapsed)
 
