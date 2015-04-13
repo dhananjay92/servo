@@ -23,18 +23,38 @@ def Notify(elapsed):
         if sys.platform.startswith('linux'):
             try:
                 import dbus
+                bus = dbus.SessionBus()
+                notify = bus.get_object('org.freedesktop.Notifications', '/org/freedesktop/Notifications')
+                method = notify.get_dbus_method('Notify', 'org.freedesktop.Notifications')
+                method('Servo Build System', 0, '', ' Servo build complete!', '', [], [], -1)
             except ImportError:
-                raise Exception('Install the python dbus module to get a notification when the build finishes.')
-            bus = dbus.SessionBus()
-            notify = bus.get_object('org.freedesktop.Notifications', '/org/freedesktop/Notifications')
-            method = notify.get_dbus_method('Notify', 'org.freedesktop.Notifications')
-            method('Servo Build System', 0, '', ' Servo build complete!', '', [], [], -1)
+                print("[Warning] Could not generate notification! Please make sure that the python dbus module is installed!")
+
+        elif sys.platform.startswith('win'):
+            try:
+                from ctypes import Structure, windll, POINTER, sizeof
+                from ctypes.wintypes import DWORD, HANDLE, WINFUNCTYPE, BOOL, UINT
+                class FLASHWINDOW(Structure):
+                    _fields_ = [("cbSize", UINT),
+                                ("hwnd", HANDLE),
+                                ("dwFlags", DWORD),
+                                ("uCount", UINT),
+                                ("dwTimeout", DWORD)]
+                FlashWindowExProto = WINFUNCTYPE(BOOL, POINTER(FLASHWINDOW))
+                FlashWindowEx = FlashWindowExProto(("FlashWindowEx", windll.user32))
+                FLASHW_CAPTION = 0x01
+                FLASHW_TRAY = 0x02
+                FLASHW_TIMERNOFG = 0x0C
+                params = FLASHWINDOW(sizeof(FLASHWINDOW),
+                                    windll.kernel32.GetConsoleWindow(),
+                                    FLASHW_CAPTION | FLASHW_TRAY | FLASHW_TIMERNOFG, 3, 0)
+                FlashWindowEx(params)
+            except ImportError:
+                print("[Warning] Could not generate notification! Please make sure that the required libraries are installed!")
+
         elif sys.platform.startswith('darwin'):
             # Notification code for Darwin here! For the time being printing simple msg
-            print("[DJ-DEV] : Darwin System! Notifications not supported currently!  Coming soon...")
-        elif sys.platform.startswith('win'):
-            # Notification code for Darwin here! For the time being printing simple msg
-            print("[DJ-DEV] : Windows System! Notifications not supported currently! Coming soon...")
+            print("[Warning] : Darwin System! Notifications not supported currently!")
 
 
 @CommandProvider
