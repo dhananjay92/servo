@@ -3732,7 +3732,23 @@ class CGProxyIndexedSetter(CGProxySpecialOperation):
     def __init__(self, descriptor):
         CGProxySpecialOperation.__init__(self, descriptor, 'IndexedSetter')
 
-class CGProxyNamedGetter(CGProxySpecialOperation):
+class CGProxyNamedOperation(CGProxySpecialOperation):
+    """
+    Class to generate a call to a named operation.
+    """
+    def __init__(self, descriptor, name):
+        CGProxySpecialOperation.__init__(self, descriptor, name)
+
+    def define(self):
+        # Our first argument is the id we're getting.
+        argName = self.arguments[0].identifier.name
+        return ("    let %s = jsid_to_str(cx, id);\n"
+                "    let this = UnwrapProxy(proxy);\n"
+                "    let this = Unrooted::from_raw(this);\n"
+                "    let this = this.root();\n" %
+                (argName) + CGProxySpecialOperation.define(self))
+
+class CGProxyNamedGetter(CGProxyNamedOperation):
     """
     Class to generate a call to an named getter. If templateValues is not None
     the returned value will be wrapped with wrapForType using templateValues.
@@ -3741,14 +3757,14 @@ class CGProxyNamedGetter(CGProxySpecialOperation):
         self.templateValues = templateValues
         CGProxySpecialOperation.__init__(self, descriptor, 'NamedGetter')
 
-class CGProxyNamedSetter(CGProxySpecialOperation):
+class CGProxyNamedSetter(CGProxyNamedOperation):
     """
     Class to generate a call to a named setter.
     """
     def __init__(self, descriptor):
         CGProxySpecialOperation.__init__(self, descriptor, 'NamedSetter')
 
-class CGProxyNamedDeleter(CGProxySpecialOperation):
+class CGProxyNamedDeleter(CGProxyNamedOperation):
     """
     Class to generate a call to a named deleter.
     """
@@ -3838,10 +3854,6 @@ class CGDOMJSProxyHandler_getOwnPropertyDescriptor(CGAbstractExternMethod):
             # properties that shadow prototype properties.
             namedGet = ("\n" +
                         "if !set && RUST_JSID_IS_STRING(id) != 0 && !has_property_on_prototype(cx, proxy, id) {\n" +
-                        "    let name = jsid_to_str(cx, id);\n" +
-                        "    let this = UnwrapProxy(proxy);\n" +
-                        "    let this = Unrooted::from_raw(this);\n" +
-                        "    let this = this.root();\n" +
                         CGIndenter(CGProxyNamedGetter(self.descriptor, templateValues)).define() + "\n" +
                         "}\n")
         else:
@@ -3902,18 +3914,10 @@ class CGDOMJSProxyHandler_defineProperty(CGAbstractExternMethod):
             if not self.descriptor.operations['NamedCreator'] is namedSetter:
                 raise TypeError("Can't handle creator that's different from the setter")
             set += ("if RUST_JSID_IS_STRING(id) != 0 {\n" +
-                    "    let name = jsid_to_str(cx, id);\n" +
-                    "    let this = UnwrapProxy(proxy);\n" +
-                    "    let this = Unrooted::from_raw(this);\n" +
-                    "    let this = this.root();\n" +
                     CGIndenter(CGProxyNamedSetter(self.descriptor)).define() +
                     "}\n")
         elif self.descriptor.operations['NamedGetter']:
             set += ("if RUST_JSID_IS_STRING(id) != 0 {\n" +
-                    "    let name = jsid_to_str(cx, id);\n" +
-                    "    let this = UnwrapProxy(proxy);\n" +
-                    "    let this = Unrooted::from_raw(this);\n" +
-                    "    let this = this.root();\n" +
                     CGIndenter(CGProxyNamedGetter(self.descriptor)).define() +
                     "    if (found) {\n"
                     "        return false;\n" +
@@ -3937,11 +3941,7 @@ class CGDOMJSProxyHandler_delete(CGAbstractExternMethod):
     def getBody(self):
         set = ""
         if self.descriptor.operations['NamedDeleter']:
-            set += ("let name = jsid_to_str(cx, id);\n" +
-                    "let this = UnwrapProxy(proxy);\n" +
-                    "let this = Unrooted::from_raw(this);\n" +
-                    "let this = this.root();\n" +
-                    "%s") % (CGProxyNamedDeleter(self.descriptor).define())
+            set += CGProxyNamedDeleter(self.descriptor).define()
         set += "return proxyhandler::delete(%s);" % ", ".join(a.name for a in self.args)
         return set
 
@@ -3973,10 +3973,6 @@ class CGDOMJSProxyHandler_hasOwn(CGAbstractExternMethod):
         namedGetter = self.descriptor.operations['NamedGetter']
         if namedGetter:
             named = ("if RUST_JSID_IS_STRING(id) != 0 && !has_property_on_prototype(cx, proxy, id) {\n" +
-                     "    let name = jsid_to_str(cx, id);\n" +
-                     "    let this = UnwrapProxy(proxy);\n" +
-                     "    let this = Unrooted::from_raw(this);\n" +
-                     "    let this = this.root();\n" +
                      CGIndenter(CGProxyNamedGetter(self.descriptor)).define() + "\n" +
                      "    *bp = found;\n"
                      "    return true;\n"
@@ -4050,10 +4046,6 @@ if !expando.is_null() {
         namedGetter = self.descriptor.operations['NamedGetter']
         if namedGetter:
             getNamed = ("if (RUST_JSID_IS_STRING(id) != 0) {\n" +
-                        "    let name = jsid_to_str(cx, id);\n" +
-                        "    let this = UnwrapProxy(proxy);\n" +
-                        "    let this = Unrooted::from_raw(this);\n" +
-                        "    let this = this.root();\n" +
                         CGIndenter(CGProxyNamedGetter(self.descriptor, templateValues)).define() +
                         "}\n")
         else:
