@@ -408,7 +408,7 @@ pub enum StylePriority {
 pub trait ElementHelpers<'a> {
     fn html_element_in_html_document(self) -> bool;
     fn local_name(self) -> &'a Atom;
-    fn parsed_name(self, name: DOMString) -> DOMString;
+    fn parsed_name(self, name: DOMString) -> Atom;
     fn namespace(self) -> &'a Namespace;
     fn prefix(self) -> &'a Option<DOMString>;
     fn attrs(&self) -> Ref<Vec<JS<Attr>>>;
@@ -435,11 +435,11 @@ impl<'a> ElementHelpers<'a> for JSRef<'a, Element> {
         &self.extended_deref().local_name
     }
 
-    fn parsed_name(self, name: DOMString) -> DOMString {
+    fn parsed_name(self, name: DOMString) -> Atom {
         if self.html_element_in_html_document() {
-            name.to_ascii_lowercase()
+            Atom::from_slice(&(name.to_ascii_lowercase()))
         } else {
-            name
+            Atom::from_slice(&name)
         }
     }
 
@@ -716,7 +716,7 @@ impl<'a> AttributeHandlers for JSRef<'a, Element> {
 
     // https://dom.spec.whatwg.org/#concept-element-attributes-get-by-name
     fn get_attribute_by_name(self, name: DOMString) -> Option<Temporary<Attr>> {
-        let name = &Atom::from_slice(&self.parsed_name(name));
+        let name = &self.parsed_name(name);
         // FIXME(https://github.com/rust-lang/rust/issues/23338)
         let attrs = self.attrs.borrow();
         attrs.iter().map(|attr| attr.root())
@@ -1082,7 +1082,6 @@ impl<'a> ElementMethods for JSRef<'a, Element> {
         let name = self.parsed_name(name);
 
         // Step 3-5.
-        let name = Atom::from_slice(&name);
         let value = self.parse_attribute(&ns!(""), &name, value);
         self.do_set_attribute(name.clone(), value, name.clone(), ns!(""), None, |attr| {
             *attr.name() == name
@@ -1110,7 +1109,7 @@ impl<'a> ElementMethods for JSRef<'a, Element> {
 
     // https://dom.spec.whatwg.org/#dom-element-removeattribute
     fn RemoveAttribute(self, name: DOMString) {
-        let name = Atom::from_slice(&self.parsed_name(name));
+        let name = self.parsed_name(name);
         self.remove_attribute_by_name(&name);
     }
 
