@@ -410,6 +410,12 @@ interface TestNamedGetterInterface {
   getter DOMString (DOMString name);
 };
 
+interface TestIndexedGetterAndSetterAndNamedGetterInterface {
+  getter DOMString (DOMString myName);
+  getter long (unsigned long index);
+  setter creator void (unsigned long index, long arg);
+};
+
 interface TestIndexedAndNamedGetterInterface {
   getter long (unsigned long index);
   getter DOMString namedItem(DOMString name);
@@ -422,7 +428,7 @@ interface TestIndexedSetterInterface {
 };
 
 interface TestNamedSetterInterface {
-  setter creator void (DOMString name, TestIndexedSetterInterface item);
+  setter creator void (DOMString myName, TestIndexedSetterInterface item);
 };
 
 interface TestIndexedAndNamedSetterInterface {
